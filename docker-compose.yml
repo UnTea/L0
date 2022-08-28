@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  postgres:
+    image: "postgres:14-alpine"
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+  docker-gs-ping:
+    build: .
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres:
