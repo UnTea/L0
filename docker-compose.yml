@@ -10,6 +10,15 @@ services:
     build: .
     ports:
       - "8080:8080"
+  NATS-streaming:
+    image: "nats-streaming:0.24-alpine"
+    ports:
+      - "4222:4222"
+      - "8222:8222"
 
 volumes:
   postgres:
+
+networks:
+  L0:
+    driver: bridge
