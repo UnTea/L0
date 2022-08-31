@@ -1,4 +1,4 @@
-create table if not exists delivery
+create table if not exists deliveries
 (
     id      bigserial constraint delivery_pkey primary key,
     name    text,
@@ -10,7 +10,7 @@ create table if not exists delivery
     email   text
 );
 
-create table if not exists payment
+create table if not exists payments
 (
     id            bigserial constraint payment_pkey primary key,
     transaction   text,
@@ -23,6 +23,24 @@ create table if not exists payment
     delivery_cost bigint,
     goods_total   bigint,
     custom_fee    bigint
+);
+
+create table if not exists models
+(
+    id                 bigserial constraint model_pkey primary key,
+    order_uid          text,
+    track_number       text,
+    entry              text,
+    locale             text,
+    internal_signature text,
+    customer_id        text,
+    delivery_service   text,
+    shard_key          text,
+    sm_id              bigint,
+    date_created       timestamp with time zone,
+    oof_shard          text,
+    delivery_id        bigint constraint fk_delivery references deliveries,
+    payment_id         bigint constraint fk_payment references payments
 );
 
 create table if not exists items
@@ -38,24 +56,7 @@ create table if not exists items
     total_price  bigint,
     nm_id        bigint,
     brand        text,
-    status       bigint
-);
-
-create table if not exists model
-(
-    id                 bigserial constraint model_pkey primary key,
-    order_uid          text,
-    track_number       text,
-    entry              text,
-    locale             text,
-    internal_signature text,
-    customer_id        text,
-    delivery_service   text,
-    shardkey           text,
-    sm_id              bigint,
-    date_created       timestamp with time zone,
-    oof_shard          text,
-    delivery_id        bigint constraint fk_delivery references delivery,
-    payment_id         bigint constraint fk_payment references payment,
-    items_id           bigint constraint fk_items references items
+    status       bigint,
+    model_id     int,
+    constraint fk_items foreign key(model_id) references models(id)
 );

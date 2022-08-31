@@ -4,13 +4,14 @@ import (
 	"database/sql" // add this
 	"encoding/json"
 	"fmt"
+	_ "github.com/lib/pq" // add this
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
 	"time"
-
-	_ "github.com/lib/pq" // add this
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -78,11 +79,18 @@ func deleteHandler(c *fiber.Ctx, db *sql.DB) error {
 	return c.SendString("deleted")
 }
 
+type Identifier struct {
+	ID uint `gorm:"primarykey"`
+}
+
 type Model struct {
-	OrderUid          string    `json:"order_uid"`
-	TrackNumber       string    `json:"track_number"`
-	Entry             string    `json:"entry"`
-	Delivery          Delivery  `json:"delivery"`
+	Identifier
+	OrderUid          string `json:"order_uid"`
+	TrackNumber       string `json:"track_number"`
+	Entry             string `json:"entry"`
+	DeliveryID        int
+	Delivery          Delivery `json:"delivery"`
+	PaymentID         int
 	Payment           Payment   `json:"payment"`
 	Items             []Items   `json:"items"`
 	Locale            string    `json:"locale"`
@@ -96,6 +104,7 @@ type Model struct {
 }
 
 type Delivery struct {
+	Identifier
 	Name    string `json:"name"`
 	Phone   string `json:"phone"`
 	Zip     string `json:"zip"`
@@ -106,6 +115,7 @@ type Delivery struct {
 }
 
 type Payment struct {
+	Identifier
 	Transaction  string `json:"transaction"`
 	RequestId    string `json:"request_id"`
 	Currency     string `json:"currency"`
@@ -119,6 +129,7 @@ type Payment struct {
 }
 
 type Items struct {
+	Identifier
 	ChrtId      int    `json:"chrt_id"`
 	TrackNumber string `json:"track_number"`
 	Price       int    `json:"price"`
@@ -130,6 +141,7 @@ type Items struct {
 	NmId        int    `json:"nm_id"`
 	Brand       string `json:"brand"`
 	Status      int    `json:"status"`
+	ModelID     int
 }
 
 func (model *Model) print() {
@@ -192,36 +204,36 @@ func main() {
 	//
 	//r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 
-	connString := "postgresql://test_user:test_password@localhost:5432/test?sslmode=disable"
+	connectionString := "postgresql://test_user:test_password@localhost:5432/test?sslmode=disable"
 
 	// Connect to database
-	db, err := sql.Open("postgres", connString)
+	db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{})
 	if err != nil {
-		log.Fatal(err)
+		panic("failed to connect database")
 	}
 
-	app := fiber.New()
-
-	app.Get("/", func(c *fiber.Ctx) error {
-		return indexHandler(c, db)
-	})
-
-	app.Post("/", func(c *fiber.Ctx) error {
-		return postHandler(c, db)
-	})
-
-	app.Put("/update", func(c *fiber.Ctx) error {
-		return putHandler(c, db)
-	})
-
-	app.Delete("/delete", func(c *fiber.Ctx) error {
-		return deleteHandler(c, db)
-	})
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3000"
-	}
+	//app := fiber.New()
+	//
+	//app.Get("/", func(c *fiber.Ctx) error {
+	//	return indexHandler(c, db)
+	//})
+	//
+	//app.Post("/", func(c *fiber.Ctx) error {
+	//	return postHandler(c, db)
+	//})
+	//
+	//app.Put("/update", func(c *fiber.Ctx) error {
+	//	return putHandler(c, db)
+	//})
+	//
+	//app.Delete("/delete", func(c *fiber.Ctx) error {
+	//	return deleteHandler(c, db)
+	//})
+	//
+	//port := os.Getenv("PORT")
+	//if port == "" {
+	//	port = "3000"
+	//}
 
 	//app.Static("/", "./public")
 	//log.Fatalln(app.Listen(fmt.Sprintf(":%v", port)))
@@ -256,4 +268,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	//db.AutoMigrate(&Model{}, &Delivery{}, Payment{}, &Items{})
+	db.Create(&model)
 }
