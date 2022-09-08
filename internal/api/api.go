@@ -12,7 +12,6 @@ import (
 	"net/http"
 )
 
-// Service - interface that represent our service
 type Service interface {
 	Get(id string) (*model.Data, error)
 	GetAllIDs() ([]string, error)
@@ -32,7 +31,6 @@ type handler struct {
 	s Service
 }
 
-// NewHandler - create new handler for http router
 func NewHandler(db *pgxpool.Pool, ch chan model.Data) *handler {
 	return &handler{
 		s: service.NewService(db, ch),
@@ -102,7 +100,6 @@ func (h *handler) startPage(w http.ResponseWriter, r *http.Request, ps httproute
 	}
 }
 
-// Register - register handlers to the router
 func (h *handler) Register(router *httprouter.Router) {
 	router.GET("/orders/:id", h.getElemByID)
 	router.GET("/", h.startPage)

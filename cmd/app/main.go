@@ -19,10 +19,9 @@ func main() {
 	ctx := context.Background()
 	ch := make(chan model.Data, 10)
 
-	// read config.yml
 	cfg, err := config.ReadConfigYML("config.yml")
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed init configuration due to error: %v", err))
+		log.Fatal(fmt.Sprintf("Error occurred while reading configuration file: %v", err))
 	}
 
 	dsn := fmt.Sprintf("host=%v port=%v user=%v password=%v dbname=%v sslmode=%v",
@@ -34,33 +33,37 @@ func main() {
 		cfg.Database.SslMode,
 	)
 
-	// create postgres conn
 	db, err := helpers.NewPostgres(ctx, dsn)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed init postgres due to error: %v", err))
+		log.Fatal(fmt.Sprintf("Error occurred while creating connection with postgresql: %v", err))
 	}
+
 	defer db.Close()
 
-	// making migrations
 	err = migrations.MakeMigrations(dsn, cfg)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed init migrations due to error: %v", err))
+		log.Fatal(fmt.Sprintf("Error occurred while migrationing database: %v", err))
 	}
 
-	// create nats conn
 	sc, err := stan.Connect(cfg.Nats.ClusterID, cfg.Nats.ClientID)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed init nats conn due to err: %v", err))
+		log.Fatal(fmt.Sprintf("Error occurred while creating connection with NATS-streaming: %v", err))
 	}
+
 	defer helpers.Closer(sc)
 
-	// Create sub on nats
 	sub, err := nats.NewSubscription(sc, cfg, ch)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed init nats subscription due to err: %v", err))
+		log.Fatal(fmt.Sprintf("Error occurred while creating new subscription: %v", err))
 	}
 
-	defer sub.Unsubscribe()
+	defer func() {
+		err := sub.Unsubscribe()
+		if err != nil {
+			fmt.Printf("Error occurred while remove subscription: %v", err)
+		}
+	}()
+
 	defer close(ch)
 
 	router := httprouter.New()
@@ -68,11 +71,11 @@ func main() {
 
 	handler.Register(router)
 
-	addr := fmt.Sprintf("%s:%s", cfg.HttpServer.IP, cfg.HttpServer.Port)
-	log.Printf("Server is listening on %s\n", addr)
+	address := fmt.Sprintf("%s:%s", cfg.HttpServer.IP, cfg.HttpServer.Port)
+	log.Printf("Server is listening on: %s\n", address)
 
-	err = http.ListenAndServe(addr, router)
+	err = http.ListenAndServe(address, router)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("cannot create tcp connection due to err: %v", err))
+		log.Fatal(fmt.Sprintf("Error occurred while creating tcp connection: %v", err))
 	}
 }

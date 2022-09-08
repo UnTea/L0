@@ -15,9 +15,9 @@ func handle(msg *stan.Msg) {
 
 	err := json.Unmarshal(msg.Data, &data)
 	if err != nil {
-		log.Printf("error while decoding data from nats channel: %v ", err)
-		// skipping wrong data
+		log.Printf("error occurred while decoding data from nats channel: %v ", err)
 		msg.Ack()
+
 		return
 	}
 
@@ -26,6 +26,7 @@ func handle(msg *stan.Msg) {
 
 	if err := msg.Ack(); err != nil {
 		log.Printf("failed tp ACK msg: %d", msg.Sequence)
+
 		return
 	}
 }
@@ -43,5 +44,6 @@ func NewSubscription(conn stan.Conn, cfg config.Config, c chan model.Data) (stan
 	if err != nil {
 		return nil, err
 	}
+
 	return sub, nil
 }

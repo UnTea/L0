@@ -22,21 +22,33 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	defer sc.Close()
 
-	jsonFIle, err := os.Open("model.json")
+	defer func() {
+		err := sc.Close()
+		if err != nil {
+			fmt.Printf("Error occurred while closing NATS-streaming connection: %v", err)
+		}
+	}()
+
+	jsonFile, err := os.Open("model.json")
 	if err != nil {
-		log.Printf("error while openning file %v", err)
+		log.Printf("Error occurred while openning JSON file: %v", err)
 	}
-	defer jsonFIle.Close()
 
-	byteValue, _ := ioutil.ReadAll(jsonFIle)
+	defer func() {
+		err := jsonFile.Close()
+		if err != nil {
+			log.Printf("Error occurred while closing JSON file: %v", err)
+		}
+	}()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
 
 	var data []model.Data
 
 	err = json.Unmarshal(byteValue, &data)
 	if err != nil {
-		log.Printf("error while parsing file %v", err)
+		log.Printf("Error occurred while parsing JSON file %v", err)
 	}
 
 	data = append(data, model.Data{})
@@ -46,7 +58,7 @@ func main() {
 
 		err = sc.Publish(channel, bytesValue)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Error occurred while publishing data into cluster: %v", err)
 		}
 	}
 

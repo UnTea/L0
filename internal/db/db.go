@@ -9,26 +9,22 @@ import (
 	"time"
 )
 
-// DB - database connection structure
 type DB struct {
 	conn *pgxpool.Pool
 	tx   pgx.Tx
 }
 
-// OrderData - wrapping for Item structure
 type OrderData struct {
 	OrderUID string
 	Item     model.Items
 }
 
-// NewDatabaseInstance - database instance structure constructor
 func NewDatabaseInstance(conn *pgxpool.Pool) *DB {
 	return &DB{
 		conn: conn,
 	}
 }
 
-// Get - gets data from database for restoring in-memory cache
 func (d *DB) Get(ctx context.Context) (data []model.Data, err error) {
 
 	data, err = d.getOrder(ctx)
@@ -62,6 +58,7 @@ func (d *DB) getOrder(ctx context.Context) ([]model.Data, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	var data []model.Data
@@ -113,6 +110,7 @@ func (d *DB) getItems(ctx context.Context) ([]OrderData, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	var items []OrderData
@@ -143,7 +141,6 @@ func (d *DB) getItems(ctx context.Context) ([]OrderData, error) {
 	return items, nil
 }
 
-// Set - add data to database
 func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
 
 	customer := model.CustomerDB{
@@ -173,6 +170,7 @@ func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
 
 	orderItems := make([]model.OrderItemsDB, 0, len(data.Items))
 	items := make([]model.ItemDB, 0, len(data.Items))
+
 	for _, value := range data.Items {
 		item := model.ItemDB{
 			ChrtID: value.ChrtID,
@@ -184,11 +182,13 @@ func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
 			NmId:   value.NmId,
 			Brand:  value.Brand,
 		}
+
 		orderItem := model.OrderItemsDB{
 			OrderID: data.OrderUID,
 			ItemID:  value.ChrtID,
 			Status:  value.Status,
 		}
+
 		items = append(items, item)
 		orderItems = append(orderItems, orderItem)
 	}
@@ -205,30 +205,30 @@ func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
 		CustomFee:    data.Payment.CustomFee,
 	}
 
-	// starting transaction
 	tx, err := d.conn.Begin(ctx)
 	if err != nil {
 		return "", err
 	}
+
 	d.tx = tx
 
 	err = d.addCustomer(ctx, customer)
 	if err != nil {
 		tx.Rollback(ctx)
-		return "", fmt.Errorf("rollback transaction due to error: %v", err)
+		return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 	}
 
 	err = d.addOrder(ctx, order)
 	if err != nil {
 		tx.Rollback(ctx)
-		return "", fmt.Errorf("rollback transaction due to error: %v", err)
+		return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 	}
 
 	for _, item := range items {
 		err = d.addItems(ctx, item)
 		if err != nil {
 			tx.Rollback(ctx)
-			return "", fmt.Errorf("rollback transaction due to error: %v", err)
+			return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 		}
 	}
 
@@ -236,17 +236,16 @@ func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
 		err = d.addOrderItems(ctx, orderItem)
 		if err != nil {
 			tx.Rollback(ctx)
-			return "", fmt.Errorf("rollback transaction due to error: %v", err)
+			return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 		}
 	}
 
 	err = d.addPayment(ctx, payment)
 	if err != nil {
 		tx.Rollback(ctx)
-		return "", fmt.Errorf("rollback transaction due to error: %v", err)
+		return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 	}
 
-	// commit transaction
 	err = d.tx.Commit(ctx)
 	if err != nil {
 		return "", err
@@ -267,9 +266,11 @@ func (d *DB) addCustomer(ctx context.Context, customer model.CustomerDB) error {
 		customer.Region,
 		customer.Email,
 	)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -288,9 +289,11 @@ func (d *DB) addOrder(ctx context.Context, order model.OrderDB) error {
 		order.OofShard,
 		order.InternalSignature,
 	)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -301,9 +304,11 @@ func (d *DB) addOrderItems(ctx context.Context, orderItems model.OrderItemsDB) e
 		orderItems.ItemID,
 		orderItems.Status,
 	)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -319,9 +324,11 @@ func (d *DB) addItems(ctx context.Context, items model.ItemDB) error {
 		items.NmId,
 		items.Brand,
 	)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -338,8 +345,10 @@ func (d *DB) addPayment(ctx context.Context, payment model.PaymentDB) error {
 		payment.GoodsTotal,
 		payment.CustomFee,
 	)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
