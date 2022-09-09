@@ -2,10 +2,9 @@ package config
 
 import (
 	"github.com/UnTea/L0/pkg/helpers"
+	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Database struct {
@@ -35,19 +34,20 @@ type Config struct {
 	HttpServer HttpServer `yaml:"http_server"`
 }
 
-func ReadConfigYML(filePath string) (cfg Config, err error) {
+func ReadConfigYML(filePath string) (config Config, err error) {
 	file, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
-		return cfg, err
+		return config, err
 	}
 
 	defer helpers.Closer(file)
 
 	decoder := yaml.NewDecoder(file)
-	err = decoder.Decode(&cfg)
+
+	err = decoder.Decode(&config)
 	if err != nil {
-		return cfg, err
+		return config, err
 	}
 
-	return cfg, nil
+	return config, nil
 }

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"context"
+	ctx "context"
 	"fmt"
 	"github.com/UnTea/L0/internal/api"
-	"github.com/UnTea/L0/internal/config"
+	cfg "github.com/UnTea/L0/internal/config"
 	"github.com/UnTea/L0/internal/migrations"
 	"github.com/UnTea/L0/internal/model"
 	"github.com/UnTea/L0/internal/nats"
@@ -16,62 +16,62 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	ch := make(chan model.Data, 10)
+	context := ctx.Background()
+	channel := make(chan model.Data, 10)
 
-	cfg, err := config.ReadConfigYML("config.yml")
+	config, err := cfg.ReadConfigYML("config.yml")
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error occurred while reading configuration file: %v", err))
 	}
 
-	dsn := fmt.Sprintf("host=%v port=%v user=%v password=%v dbname=%v sslmode=%v",
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.User,
-		cfg.Database.Password,
-		cfg.Database.Name,
-		cfg.Database.SslMode,
+	connectionString := fmt.Sprintf("host=%v port=%v user=%v password=%v dbname=%v sslmode=%v",
+		config.Database.Host,
+		config.Database.Port,
+		config.Database.User,
+		config.Database.Password,
+		config.Database.Name,
+		config.Database.SslMode,
 	)
 
-	db, err := helpers.NewPostgres(ctx, dsn)
+	database, err := helpers.NewPostgres(context, connectionString)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error occurred while creating connection with postgresql: %v", err))
 	}
 
-	defer db.Close()
+	defer database.Close()
 
-	err = migrations.MakeMigrations(dsn, cfg)
+	err = migrations.MakeMigrations(connectionString, config)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error occurred while migrationing database: %v", err))
 	}
 
-	sc, err := stan.Connect(cfg.Nats.ClusterID, cfg.Nats.ClientID)
+	stanConnection, err := stan.Connect(config.Nats.ClusterID, config.Nats.ClientID)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error occurred while creating connection with NATS-streaming: %v", err))
 	}
 
-	defer helpers.Closer(sc)
+	defer helpers.Closer(stanConnection)
 
-	sub, err := nats.NewSubscription(sc, cfg, ch)
+	subscription, err := nats.NewSubscription(stanConnection, config, channel)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error occurred while creating new subscription: %v", err))
 	}
 
 	defer func() {
-		err := sub.Unsubscribe()
+		err := subscription.Unsubscribe()
 		if err != nil {
 			fmt.Printf("Error occurred while remove subscription: %v", err)
 		}
 	}()
 
-	defer close(ch)
+	defer close(channel)
 
 	router := httprouter.New()
-	handler := api.NewHandler(db, ch)
+	handler := api.NewHandler(database, channel)
 
 	handler.Register(router)
 
-	address := fmt.Sprintf("%s:%s", cfg.HttpServer.IP, cfg.HttpServer.Port)
+	address := fmt.Sprintf("%s:%s", config.HttpServer.IP, config.HttpServer.Port)
 	log.Printf("Server is listening on: %s\n", address)
 
 	err = http.ListenAndServe(address, router)

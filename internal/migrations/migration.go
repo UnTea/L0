@@ -8,8 +8,9 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-func MakeMigrations(dsn string, cfg config.Config) error {
-	mdb, _ := sql.Open("postgres", dsn)
+func MakeMigrations(connectionString string, cfg config.Config) error {
+	mdb, _ := sql.Open("postgres", connectionString)
+
 	err := mdb.Ping()
 	if err != nil {
 		return err

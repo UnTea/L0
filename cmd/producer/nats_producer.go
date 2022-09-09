@@ -17,14 +17,13 @@ const (
 )
 
 func main() {
-
-	sc, err := stan.Connect(clusterID, clientID)
+	stanConnection, err := stan.Connect(clusterID, clientID)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	defer func() {
-		err := sc.Close()
+		err := stanConnection.Close()
 		if err != nil {
 			fmt.Printf("Error occurred while closing NATS-streaming connection: %v", err)
 		}
@@ -42,6 +41,7 @@ func main() {
 		}
 	}()
 
+	// fixme deprecated method
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
 	var data []model.Data
@@ -56,16 +56,16 @@ func main() {
 	for _, value := range data {
 		bytesValue, _ := json.Marshal(value)
 
-		err = sc.Publish(channel, bytesValue)
+		err = stanConnection.Publish(channel, bytesValue)
 		if err != nil {
 			fmt.Printf("Error occurred while publishing data into cluster: %v", err)
 		}
 	}
 
-	err = sc.Publish(channel, []byte("Some wrong data"))
+	err = stanConnection.Publish(channel, []byte("Some wrong data"))
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Error occurred while sending wrong data: %v", err)
 	}
 
-	fmt.Println("Out of 6 messages sent: 4 was correct, 2 was incorrect")
+	fmt.Println("Out of 5 messages sent: 4 was correct, 1 was incorrect")
 }

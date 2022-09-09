@@ -28,57 +28,63 @@ type startPage struct {
 }
 
 type handler struct {
-	s Service
+	service Service
 }
 
-func NewHandler(db *pgxpool.Pool, ch chan model.Data) *handler {
+func NewHandler(database *pgxpool.Pool, channel chan model.Data) *handler {
 	return &handler{
-		s: service.NewService(db, ch),
+		service: service.NewService(database, channel),
 	}
 }
 
-func (h *handler) getElemByID(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	id := ps.ByName("id")
-	data, err := h.s.Get(id)
+func (h *handler) getElemByID(writer http.ResponseWriter, request *http.Request, parametersSlice httprouter.Params) {
+	id := parametersSlice.ByName("id")
+
+	data, err := h.service.Get(id)
 	if err != nil {
 		log.Printf(fmt.Sprintf("error while getting element by id: %s due to err: %v", id, err))
-		fmt.Fprint(w, "There is no such id")
+		fmt.Fprint(writer, "There is no such id")
+
 		return
 	}
 
 	jsonData, err := json.MarshalIndent(data, " ", " ")
 	if err != nil {
 		log.Printf(fmt.Sprintf("error while marshalling element by id: %s due to err: %v", id, err))
-		fmt.Fprint(w, "There is no such id")
+		fmt.Fprint(writer, "There is no such id")
+
 		return
 	}
 
 	t, err := template.ParseFiles("web/static/order.html")
 	if err != nil {
 		log.Printf("template parsing error: %v", err)
+
 		return
 	}
 
-	p := orderPage{
+	page := orderPage{
 		Data: *data,
 		Json: string(jsonData),
 	}
 
-	err = t.Execute(w, p)
+	err = t.Execute(writer, page)
 	if err != nil {
 		log.Printf("error while parsing html template due to err: %v", err)
+
 		return
 	}
 }
 
-func (h *handler) startPage(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (h *handler) startPage(writer http.ResponseWriter, request *http.Request, parametersSlice httprouter.Params) {
 	t, err := template.ParseFiles("web/static/index.html")
 	if err != nil {
 		log.Printf("template parsing error: %v", err)
+
 		return
 	}
 
-	ids, err := h.s.GetAllIDs()
+	ids, err := h.service.GetAllIDs()
 	if err != nil {
 		log.Printf("error: %v", err)
 	}
@@ -88,14 +94,15 @@ func (h *handler) startPage(w http.ResponseWriter, r *http.Request, ps httproute
 		exist = true
 	}
 
-	pg := startPage{
+	page := startPage{
 		Exist: exist,
 		IDs:   ids,
 	}
 
-	err = t.Execute(w, pg)
+	err = t.Execute(writer, page)
 	if err != nil {
 		log.Printf("error while parsing html template due to err: %v", err)
+
 		return
 	}
 }

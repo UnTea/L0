@@ -5,9 +5,8 @@ import (
 	"log"
 )
 
-func Closer(c io.Closer) {
-	if err := c.Close(); err != nil {
-		log.Printf("close error: %v", err)
+func Closer(closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		log.Printf("Error occured while close: %v", err)
 	}
 }
-

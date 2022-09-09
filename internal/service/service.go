@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
-	memory "github.com/Saimunyz/L0/pkg/cache"
-	"github.com/UnTea/L0/internal/db"
+	"github.com/UnTea/L0/internal/database"
 	"github.com/UnTea/L0/internal/model"
+	memoryRepresentation "github.com/UnTea/L0/pkg/cache"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 )
@@ -17,14 +17,14 @@ type Storage interface {
 
 type Service struct {
 	dbInstance  Storage
-	memoryCache *memory.Cache
+	memoryCache *memoryRepresentation.Cache
 	ch          chan model.Data
 }
 
 func NewService(dbInstance *pgxpool.Pool, ch chan model.Data) *Service {
 	s := &Service{
-		dbInstance:  db.NewDatabaseInstance(dbInstance),
-		memoryCache: memory.NewCache(),
+		dbInstance:  database.NewDatabaseInstance(dbInstance),
+		memoryCache: memoryRepresentation.NewCache(),
 		ch:          ch,
 	}
 	go s.Start()
@@ -53,7 +53,7 @@ func (s *Service) Start() {
 			log.Printf("cannot insert data into database due to err: %v", err)
 		} else {
 			s.memoryCache.Set(data.OrderUID, data)
-			log.Printf("data successefuly added into in-memory cache and database with id: %s", id)
+			log.Printf("data successefuly added into in-memoryRepresentation cache and database with id: %s", id)
 		}
 	}
 }

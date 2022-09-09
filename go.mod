@@ -3,7 +3,6 @@ module github.com/UnTea/L0
 go 1.18
 
 require (
-	github.com/Saimunyz/L0 v0.0.0-20211229180240-515a8972f8c4
 	github.com/jackc/pgx/v4 v4.17.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.10.6

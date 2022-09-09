@@ -1,4 +1,4 @@
-package db
+package database
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-type DB struct {
-	conn *pgxpool.Pool
-	tx   pgx.Tx
+type Database struct {
+	connection  *pgxpool.Pool
+	transaction pgx.Tx
 }
 
 type OrderData struct {
@@ -19,20 +19,20 @@ type OrderData struct {
 	Item     model.Items
 }
 
-func NewDatabaseInstance(conn *pgxpool.Pool) *DB {
-	return &DB{
-		conn: conn,
+func NewDatabaseInstance(connection *pgxpool.Pool) *Database {
+	return &Database{
+		connection: connection,
 	}
 }
 
-func (d *DB) Get(ctx context.Context) (data []model.Data, err error) {
+func (database *Database) Get(ctx context.Context) (data []model.Data, err error) {
 
-	data, err = d.getOrder(ctx)
+	data, err = database.getOrder(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	items, err := d.getItems(ctx)
+	items, err := database.getItems(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +48,8 @@ func (d *DB) Get(ctx context.Context) (data []model.Data, err error) {
 	return data, nil
 }
 
-func (d *DB) getOrder(ctx context.Context) ([]model.Data, error) {
-	rows, err := d.conn.Query(ctx,
+func (database *Database) getOrder(ctx context.Context) ([]model.Data, error) {
+	rows, err := database.connection.Query(ctx,
 		"SELECT order_uid, track_number, entry, locale, internal_signature, customer_id, "+
 			"delivery_service, shardkey, sm_id, date_created, oof_shard, name, phone, zip, city, address, "+
 			"region, email, transaction, request_id, currency, provider, payment_dt, bank, delivery_cost, "+
@@ -104,8 +104,8 @@ func (d *DB) getOrder(ctx context.Context) ([]model.Data, error) {
 	return data, nil
 }
 
-func (d *DB) getItems(ctx context.Context) ([]OrderData, error) {
-	rows, err := d.conn.Query(ctx,
+func (database *Database) getItems(ctx context.Context) ([]OrderData, error) {
+	rows, err := database.connection.Query(ctx,
 		"SELECT chrt_id, price, rid, name, sale, size, nm_id, brand, status, order_id From get_items();")
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (d *DB) getItems(ctx context.Context) ([]OrderData, error) {
 	return items, nil
 }
 
-func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
+func (database *Database) Set(ctx context.Context, data model.Data) (string, error) {
 
 	customer := model.CustomerDB{
 		CustomerID: data.CustomerID,
@@ -205,48 +205,52 @@ func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
 		CustomFee:    data.Payment.CustomFee,
 	}
 
-	tx, err := d.conn.Begin(ctx)
+	transaction, err := database.connection.Begin(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	d.tx = tx
+	database.transaction = transaction
 
-	err = d.addCustomer(ctx, customer)
+	err = database.addCustomer(ctx, customer)
 	if err != nil {
-		tx.Rollback(ctx)
+		transaction.Rollback(ctx)
+
 		return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 	}
 
-	err = d.addOrder(ctx, order)
+	err = database.addOrder(ctx, order)
 	if err != nil {
-		tx.Rollback(ctx)
+		transaction.Rollback(ctx)
 		return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 	}
 
 	for _, item := range items {
-		err = d.addItems(ctx, item)
+		err = database.addItems(ctx, item)
 		if err != nil {
-			tx.Rollback(ctx)
+			transaction.Rollback(ctx)
+
 			return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 		}
 	}
 
 	for _, orderItem := range orderItems {
-		err = d.addOrderItems(ctx, orderItem)
+		err = database.addOrderItems(ctx, orderItem)
 		if err != nil {
-			tx.Rollback(ctx)
+			transaction.Rollback(ctx)
+
 			return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 		}
 	}
 
-	err = d.addPayment(ctx, payment)
+	err = database.addPayment(ctx, payment)
 	if err != nil {
-		tx.Rollback(ctx)
+		transaction.Rollback(ctx)
+
 		return "", fmt.Errorf("error occurred while rollbacking transaction: %v", err)
 	}
 
-	err = d.tx.Commit(ctx)
+	err = database.transaction.Commit(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -254,8 +258,8 @@ func (d *DB) Set(ctx context.Context, data model.Data) (string, error) {
 	return data.OrderUID, nil
 }
 
-func (d *DB) addCustomer(ctx context.Context, customer model.CustomerDB) error {
-	_, err := d.tx.Exec(ctx,
+func (database *Database) addCustomer(ctx context.Context, customer model.CustomerDB) error {
+	_, err := database.transaction.Exec(ctx,
 		"SELECT add_customer($1, $2, $3, $4, $5, $6, $7, $8);",
 		customer.CustomerID,
 		customer.Name,
@@ -274,8 +278,8 @@ func (d *DB) addCustomer(ctx context.Context, customer model.CustomerDB) error {
 	return nil
 }
 
-func (d *DB) addOrder(ctx context.Context, order model.OrderDB) error {
-	_, err := d.tx.Exec(ctx,
+func (database *Database) addOrder(ctx context.Context, order model.OrderDB) error {
+	_, err := database.transaction.Exec(ctx,
 		"SELECT add_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);",
 		order.OrderUID,
 		order.CustomerID,
@@ -297,8 +301,8 @@ func (d *DB) addOrder(ctx context.Context, order model.OrderDB) error {
 	return nil
 }
 
-func (d *DB) addOrderItems(ctx context.Context, orderItems model.OrderItemsDB) error {
-	_, err := d.tx.Exec(ctx,
+func (database *Database) addOrderItems(ctx context.Context, orderItems model.OrderItemsDB) error {
+	_, err := database.transaction.Exec(ctx,
 		"SELECT add_order_items($1, $2, $3);",
 		orderItems.OrderID,
 		orderItems.ItemID,
@@ -312,8 +316,8 @@ func (d *DB) addOrderItems(ctx context.Context, orderItems model.OrderItemsDB) e
 	return nil
 }
 
-func (d *DB) addItems(ctx context.Context, items model.ItemDB) error {
-	_, err := d.tx.Exec(ctx,
+func (database *Database) addItems(ctx context.Context, items model.ItemDB) error {
+	_, err := database.transaction.Exec(ctx,
 		"SELECT add_items($1, $2, $3, $4, $5, $6, $7, $8);",
 		items.ChrtID,
 		items.Price,
@@ -332,8 +336,8 @@ func (d *DB) addItems(ctx context.Context, items model.ItemDB) error {
 	return nil
 }
 
-func (d *DB) addPayment(ctx context.Context, payment model.PaymentDB) error {
-	_, err := d.tx.Exec(ctx,
+func (database *Database) addPayment(ctx context.Context, payment model.PaymentDB) error {
+	_, err := database.transaction.Exec(ctx,
 		"SELECT add_payment($1, $2, $3, $4, $5, $6, $7, $8, $9);",
 		payment.Transaction,
 		payment.RequestID,

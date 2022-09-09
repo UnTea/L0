@@ -5,9 +5,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// NewPostgres - create new postgres connection
-func NewPostgres(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
-	connection, err := pgxpool.Connect(ctx, dsn)
+func NewPostgres(ctx context.Context, connectionString string) (*pgxpool.Pool, error) {
+	connection, err := pgxpool.Connect(ctx, connectionString)
 	if err != nil {
 		return nil, err
 	}
